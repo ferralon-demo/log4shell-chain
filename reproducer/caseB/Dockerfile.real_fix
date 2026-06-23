@@ -1,0 +1,23 @@
+# Case B — real_fix checkpoint.
+# log4j-core 2.17.0  (apache/logging-log4j2 rel/2.17.0
+#                     commit 8285c82d998164dccfb2e57889b9dfb73dc27533)
+#
+# 2.17.0 bounded recursion depth in StrSubstitutor, closing the DoS. Under the
+# two-trace requirement the same self-referential ${ctx:x} driver that tripped
+# the canary on 2.16.0 resolves normally here -> proven not_exploitable (PoNE).
+#
+# We pin the RELEASED Maven artifact (2.17.0); the SHA above is provenance only.
+# EFFECT-ONLY (RFC 0003 / RFC 0001 inv. 8).
+
+FROM maven:3.9-eclipse-temurin-8 AS build
+WORKDIR /src
+COPY driver/pom.xml .
+COPY driver/src ./src
+RUN mvn -B -Dlog4j.version=2.17.0 -q clean package
+
+FROM eclipse-temurin:8-jre
+WORKDIR /app
+COPY --from=build /src/target/caseB-jar-with-dependencies.jar /app/caseB.jar
+COPY --from=build /src/target/classes/log4j2.xml /app/log4j2.xml
+ENV LOG4J_CONFIGURATION_FILE=/app/log4j2.xml
+ENTRYPOINT ["java", "-Xss512k", "-Dlog4j.configurationFile=/app/log4j2.xml", "-jar", "/app/caseB.jar"]

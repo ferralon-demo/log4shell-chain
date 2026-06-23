@@ -1,0 +1,27 @@
+# Case A — real_fix checkpoint (closes the JNDI RCE class).
+# log4j-core 2.16.0  (apache/logging-log4j2 rel/2.16.0
+#                     commit 70638718e0db900552c062b98956a05409d70058)
+#
+# 2.16.0 removed message lookups entirely and disabled JNDI by default, closing
+# the JNDI RCE class. Under the two-trace requirement the same NON-DEFAULT layout
+# driver that fired on 2.15.0 goes DARK here -> proven not_exploitable (PoNE).
+# (2.16.0 still carries the DoS that Case B proves -- a fix that trades one vuln
+# class for another. Hence per-class Cases.)
+#
+# We pin the RELEASED Maven artifact (2.16.0); the SHA above is provenance only.
+# EFFECT-ONLY (RFC 0003 / RFC 0001 inv. 8).
+
+FROM maven:3.9-eclipse-temurin-8 AS build
+WORKDIR /src
+COPY driver/pom.xml .
+COPY driver/src ./src
+RUN mvn -B -Dlog4j.version=2.16.0 -q clean package
+
+FROM eclipse-temurin:8-jre
+WORKDIR /app
+COPY --from=build /src/target/caseA-jar-with-dependencies.jar /app/caseA.jar
+# Same non-default layout as the failed_fix trace, so the two traces compare
+# like-for-like; on 2.16.0 the JNDI path no longer fires.
+COPY --from=build /src/target/classes/log4j2-nondefault.xml /app/log4j2.xml
+ENV LOG4J_CONFIGURATION_FILE=/app/log4j2.xml
+ENTRYPOINT ["java", "-Dlog4j.configurationFile=/app/log4j2.xml", "-jar", "/app/caseA.jar"]

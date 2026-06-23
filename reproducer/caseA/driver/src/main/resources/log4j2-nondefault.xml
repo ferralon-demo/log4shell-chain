@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  NON-DEFAULT PatternLayout. Used by the `failed_fix` (2.15.0) checkpoint.
+
+  2.15.0 restricted JNDI to localhost + an allowlist and disabled message
+  lookups, which the advisory called "fixed". But a non-default layout that
+  evaluates a Context/Map lookup (${ctx:...}) on attacker-controlled data still
+  reaches the JNDI resolver (this is the CVE-2021-45046 bypass). The pattern
+  below resolves ${ctx:attack}, which the driver populates with the JNDI string;
+  that routes the attacker data through the lookup path the 2.15.0 fix left open.
+
+  This is the configuration that makes the failed_fix checkpoint exploitable, and
+  it is exactly the recorded precondition: condition = non_default_pattern_layout.
+-->
+<Configuration status="WARN">
+  <Appenders>
+    <Console name="Console" target="SYSTEM_OUT">
+      <!-- Non-default: the layout itself resolves a Context/Map lookup. -->
+      <PatternLayout pattern="%d{HH:mm:ss.SSS} [%t] %-5level %logger{36} - ${ctx:attack} %msg%n"/>
+    </Console>
+  </Appenders>
+  <Loggers>
+    <Root level="error">
+      <AppenderRef ref="Console"/>
+    </Root>
+  </Loggers>
+</Configuration>

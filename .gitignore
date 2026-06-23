@@ -1,0 +1,6 @@
+_site/
+out/
+*.tmp
+# Maven build output (reproducers build inside Docker; never commit local target/).
+target/
+records/

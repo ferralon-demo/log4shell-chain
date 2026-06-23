@@ -1,0 +1,27 @@
+# Case A — failed_fix checkpoint (the incomplete first fix).
+# log4j-core 2.15.0  (apache/logging-log4j2 rel/2.15.0
+#                     commit 636ce10d676202b2ea4aa2bab9924a5a8c6dd401)
+#
+# 2.15.0 was the advisory's first "fixed" version (restricted JNDI to localhost +
+# allowlist, disabled message lookups). It is INCOMPLETE: a NON-DEFAULT
+# PatternLayout that resolves a Context/Map lookup on attacker data still reaches
+# the JNDI resolver (CVE-2021-45046). We therefore ship the NON-DEFAULT layout
+# (log4j2-nondefault.xml) so the bypass path is exercised. The recorded condition
+# is `non_default_pattern_layout`.
+#
+# We pin the RELEASED Maven artifact (2.15.0); the SHA above is provenance only.
+# EFFECT-ONLY (RFC 0003 / RFC 0001 inv. 8): outbound JNDI callback only.
+
+FROM maven:3.9-eclipse-temurin-8 AS build
+WORKDIR /src
+COPY driver/pom.xml .
+COPY driver/src ./src
+RUN mvn -B -Dlog4j.version=2.15.0 -q clean package
+
+FROM eclipse-temurin:8-jre
+WORKDIR /app
+COPY --from=build /src/target/caseA-jar-with-dependencies.jar /app/caseA.jar
+# NON-DEFAULT layout: this is what makes the 2.15.0 bypass reachable.
+COPY --from=build /src/target/classes/log4j2-nondefault.xml /app/log4j2.xml
+ENV LOG4J_CONFIGURATION_FILE=/app/log4j2.xml
+ENTRYPOINT ["java", "-Dlog4j.configurationFile=/app/log4j2.xml", "-jar", "/app/caseA.jar"]
